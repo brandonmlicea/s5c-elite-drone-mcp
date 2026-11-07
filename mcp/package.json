@@ -1,0 +1,11 @@
+{
+  "name": "s5c-elite-mcp",
+  "version": "1.0.0",
+  "description": "MCP server that gives Claude control of a SNAPTAIN S5C Elite drone: status, flight, return home, camera frames and the drone's own shell.",
+  "type": "module",
+  "bin": { "s5c-mcp": "./s5c-mcp.mjs" },
+  "files": ["s5c-mcp.mjs", "README.md"],
+  "engines": { "node": ">=18" },
+  "keywords": ["mcp", "drone", "snaptain", "s5c-elite", "claude", "claude-code"],
+  "license": "MIT"
+}

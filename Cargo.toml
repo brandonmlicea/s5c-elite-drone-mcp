@@ -1,0 +1,50 @@
+﻿[package]
+name = "s5c"
+version = "0.2.0"
+description = "PC control for the SNAPTAIN S5C Elite: camera-measured XYZ, live H.264 to the browser, Cloudflare link"
+publish = false
+edition = "2021"
+build = "build.rs"
+
+[[bin]]
+name = "serve"
+path = "src/serve.rs"
+
+[dependencies]
+aes = "0.8"
+crossterm = "0.28"
+tiny_http = "0.12"
+sha1_smol = "1"
+openh264 = "0.9"
+jpeg-encoder = "0.6"
+wry = "0.55"
+tao = "0.35"
+
+[build-dependencies]
+embed-resource = "3"
+
+[profile.release]
+opt-level = 3
+lto = true
+strip = true
+
+[[bin]]
+name = "shell"
+path = "src/shell.rs"
+
+[[bin]]
+name = "replay"
+path = "src/replay.rs"
+
+[[bin]]
+name = "fit"
+path = "src/fit.rs"
+
+[[bin]]
+name = "sim"
+path = "src/simrun.rs"
+
+[[bin]]
+name = "s5c-elite"
+path = "src/app.rs"
+

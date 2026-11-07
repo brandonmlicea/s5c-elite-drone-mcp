@@ -1,0 +1,9 @@
+{
+  "name": "s5c-elite-drone",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "vars": { "ORIGIN": "http://s5c-drone.your-domain.example" },
+  "routes": [{ "pattern": "drone.your-domain.example", "custom_domain": true }],
+  "vpc_services": [{ "binding": "DRONE", "service_id": "REPLACE_WITH_YOUR_TUNNEL_VPC_SERVICE_ID" }]
+}

@@ -1,0 +1,9 @@
+target/
+runtime/
+testdata/
+worker/node_modules/
+worker/.wrangler/
+*.log
+worker/wrangler.json
+runtime/home-ssid.txt
+.env

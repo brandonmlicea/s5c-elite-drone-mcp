@@ -1,0 +1,150 @@
+<!doctype html><html><head><meta charset=utf-8><title>S5C Elite control</title>
+<style>
+body{margin:0;background:#0b0b0b;color:#eee;font:14px system-ui}
+#wrap{display:flex;gap:16px;padding:16px}
+#view{width:960px;height:540px;background:#000;border:1px solid #333;overflow:hidden;position:relative;cursor:crosshair}
+#v,#vj{width:100%;height:100%;object-fit:cover;transition:transform .06s linear;transform-origin:center;display:block}
+#over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#9ab;font-size:16px;pointer-events:none;text-align:center;padding:24px}
+#xyzov{position:absolute;right:8px;top:8px;background:#000b;padding:6px 10px;border-radius:6px;font:13px/1.45 ui-monospace,Consolas,monospace;pointer-events:none;text-align:right;white-space:pre}
+#zl{position:absolute;right:8px;bottom:8px;background:#000a;padding:2px 8px;border-radius:4px;font-size:12px;pointer-events:none}
+#gauge{display:none;position:absolute;left:10%;right:10%;top:10px;height:8px;background:#0008;border-radius:4px;pointer-events:none}
+#gauge::before{content:'';position:absolute;left:45%;width:10%;top:0;bottom:0;background:#fff2}
+#gauge::after{content:'';position:absolute;left:50%;width:2px;top:-4px;bottom:-4px;background:#fff8}
+#gbar{position:absolute;top:0;bottom:0;background:#2a6;border-radius:4px}
+#side{width:300px}
+.k{display:inline-block;width:40px;height:40px;line-height:40px;text-align:center;border:1px solid #444;border-radius:6px;margin:2px}
+.k.on{background:#2a6;color:#000}
+button{display:block;width:100%;margin:4px 0;padding:8px;background:#222;color:#eee;border:1px solid #444;border-radius:6px;cursor:pointer}
+button:hover{background:#333}
+#connb{background:#164;border-color:#2a6;font-weight:600}
+.row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #222}
+.hint{color:#888;font-size:12px;margin-top:8px;width:960px}
+b{color:#6cf}
+#status{color:#fd6;padding:6px 0;min-height:2.6em}
+</style></head><body>
+<div id=wrap>
+<div><div id=view><canvas id=v width=1920 height=1080></canvas><div id=over>Looking for the drone - it connects by itself as soon as it is powered on</div><div id=xyzov>X  +0.000 m
+Y  +0.000 m
+Z  +0.000 m
+H    0.0 deg</div><div id=zl></div><div id=gauge><div id=gbar></div></div></div>
+<div class=hint>Hold the left mouse button on the video and move left/right = drone turns in place (further from centre = faster, let go = stop) | M toggles mouse turn | G hover hold (holds its view when you let go) | mouse up/down = look | scroll = zoom | W/S fwd-back | A/D left-right | Q/E turn | R/F up-down | T takeoff | L soft land | H return home | SPACE motor stop | 1/2/3 speed</div></div>
+<div id=side>
+<button id=connb onclick="toggleConn()">Disconnect</button>
+<div id=status>idle</div>
+<div><span class=k id=kw>W</span><span class=k id=kr>R</span><span class=k id=kt>T</span></div>
+<div><span class=k id=ka>A</span><span class=k id=ks>S</span><span class=k id=kd>D</span></div>
+<div><span class=k id=kq>Q</span><span class=k id=ke>E</span><span class=k id=kf>F</span></div>
+<button id=turnb onclick="turnOn=!turnOn;localStorage.turn=turnOn?'on':'off';look()">Mouse turn (M)</button>
+<button onclick="cmd('takeoff')">Takeoff (T)</button>
+<button onclick="cmd('land')">Soft land (L)</button>
+<button onclick="cmd('home')">Return home - retrace to takeoff point (H)</button>
+<button onclick="cmd('stop')">Motor stop (SPACE)</button>
+<button id=holdb onclick="cmd('hold')">Hover hold (G)</button>
+<button onclick="cmd('calibrate')">Calibrate</button>
+<div class=row><span>X Y Z (m)</span><b id=xyz>-</b></div>
+<div class=row><span>heading</span><b id=hdg>-</b></div>
+<div class=row><span>battery</span><b id=bat>-</b></div>
+<div class=row><span>flight</span><b id=fly>-</b></div>
+<div class=row><span>video</span><b id=vid>-</b></div>
+<div class=row><span>rate</span><b id=rate>35</b></div>
+<div class=row><span>build</span><b id=bld>-</b></div>
+</div></div>
+<script>
+const view=document.getElementById('view'); let vid=document.getElementById('v'); const zl=document.getElementById('zl'), over=document.getElementById('over');
+let zoom=Math.min(4,Math.max(1,+localStorage.zoom||1.9)), mx=0, my=0, inside=false, down=false;
+let turnOn=localStorage.turn!=='off', flying=false, busyAuto=false, connected=false;
+const DEAD=0.1, gauge=document.getElementById('gauge'), bar=document.getElementById('gbar');
+function mouseTurn(){
+ if(!turnOn||!down||!inside||!connected||!flying||busyAuto)return 0;
+ const a=Math.abs(mx); if(a<DEAD)return 0;
+ return Math.sign(mx)*Math.min(1,(a-DEAD)/(0.5-DEAD));
+}
+function look(){
+ const z=inside?zoom:1, pan=((z-1)/z)*100, px=turnOn?0:mx;
+ (document.getElementById("vj")||vid).style.transform=z>1.001?`scale(${z}) translate(${(-px*pan).toFixed(2)}%,${(-my*pan).toFixed(2)}%)`:'';
+ const y=mouseTurn();
+ zl.textContent=zoom.toFixed(1)+'x | mouse turn '+(turnOn?(y?(y>0?'right ':'left ')+Math.round(Math.abs(y)*100)+"%":'on - hold the button'):'off (M)');
+ gauge.style.display=turnOn&&inside&&connected?'block':'none';
+ document.getElementById('turnb').textContent='Mouse turn: '+(turnOn?'ON':'OFF')+' (M)';
+ bar.style.left=(y<0?50+y*50:50)+"%"; bar.style.width=(Math.abs(y)*50)+"%";
+}
+view.addEventListener('mousemove',e=>{const r=view.getBoundingClientRect();
+ mx=(e.clientX-r.left)/r.width-0.5; my=(e.clientY-r.top)/r.height-0.5; inside=true; look();});
+view.addEventListener('mousedown',e=>{if(e.button===0){e.preventDefault();down=true;look();}});
+addEventListener('mouseup',()=>{down=false;look();});
+view.addEventListener('mouseleave',()=>{inside=false;down=false;look();});
+view.addEventListener('wheel',e=>{e.preventDefault();
+ zoom=Math.min(4,Math.max(1,zoom*Math.pow(1.0015,-e.deltaY))); localStorage.zoom=zoom; inside=true; look();},{passive:false});
+view.addEventListener('dblclick',()=>{zoom=1.9;localStorage.zoom=zoom;look();});
+look();
+let held={}, rate=35, build=null;
+const map={w:'kw',a:'ka',s:'ks',d:'kd',q:'kq',e:'ke',r:'kr',f:'kf',t:'kt'};
+function paint(){for(const k in map){document.getElementById(map[k]).classList.toggle('on',!!held[k]);}}
+addEventListener('keydown',e=>{let k=e.key.toLowerCase();
+ if(e.repeat&&'tlh '.includes(k)){e.preventDefault();return;}
+ if(k==='t'){cmd('takeoff');return;} if(k==='h'){cmd('home');return;} if(k==='l'){cmd('land');return;}
+ if(k===' '){cmd('stop');e.preventDefault();return;}
+ if('123'.includes(k)){rate=[20,35,55][k-1];document.getElementById('rate').textContent=rate;return;}
+ if(k==='g'){cmd('hold');return;}
+ if(k==='m'){turnOn=!turnOn;localStorage.turn=turnOn?'on':'off';look();return;}
+ held[k]=1;paint();});
+addEventListener('keyup',e=>{held[e.key.toLowerCase()]=0;paint();});
+addEventListener('blur',()=>{held={};inside=false;down=false;paint();look();});
+function cmd(c){if(c==='home'||c==='land')busyAuto=true; fetch('/cmd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cmd:c})});}
+function toggleConn(){fetch('/'+(connected?'disconnect':'connect'),{method:'POST'});}
+setInterval(()=>{
+ const ax=(p,m)=>rate*((held[p]?1:0)-(held[m]?1:0));
+ const keys=held.q||held.e, yaw=keys?ax("e","q"):0, turn=keys?0:mouseTurn();
+ fetch('/control',{method:'POST',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({roll:ax("d","a"),pitch:ax("w","s"),throttle:ax("r","f"),yaw:yaw,turn:+turn.toFixed(3)})}).catch(()=>{});
+},60);
+function show(s){
+ if(build===null)build=s.build; else if(s.build!==build){location.reload();return;}
+ connected=s.connected; flying=s.fly===2; busyAuto=s.homing||s.landing; look();
+ document.getElementById('status').textContent=s.status;
+ document.getElementById('connb').textContent=connected?'Disconnect':(s.status.startsWith('idle')?'Connect to drone':'Connect now');
+ const low=connected&&s.battery>0&&s.battery<=30, bat=document.getElementById('bat');
+ bat.textContent=(s.battery||0)+'%'+(low?' LOW - land now (video and Wi-Fi cut out when it sags)':'');
+ bat.style.color=low?'#f66':'';
+ document.getElementById('fly').textContent=['ground','climb','fly','land'][s.fly||0]+(s.landing?' - soft landing':'')+(s.homing?' - returning home':'');
+ const sg=v=>(v<0?'-':'+')+Math.abs(v).toFixed(3);
+ document.getElementById('xyz').textContent=[s.x,s.y,s.z].map(sg).join('  ');
+ document.getElementById('hdg').textContent=s.heading.toFixed(1)+' deg';
+ document.getElementById('xyzov').textContent=`X ${sg(s.x)} m\nY ${sg(s.y)} m\nZ ${sg(s.z)} m\nH ${s.heading.toFixed(1).padStart(6)} deg\n${!s.connected?'drone not connected':s.fly===0?'camera tracking starts at takeoff':s.lock>0.5?'camera lock '+Math.round(s.lock*100)+'%':'camera lock lost - sticks only'}${s.home_set?'':'\ntakeoff view not saved yet'}${s.holding?'\nhover hold active':''}`;
+ document.getElementById('holdb').textContent='Hover hold: '+(s.hold_on?'ON':'OFF')+' (G)';
+ document.getElementById('vid').textContent=!shown?'-':`${shownFps} fps on screen | ${(s.kbps/1000).toFixed(1)} Mbps | ${Math.max(0,Math.round(netLag))} ms network`;
+ document.getElementById('bld').textContent=s.build+(s.update?' (update ready - disconnect to load)':'');
+ const live=shown&&performance.now()-shown<1500;
+ over.style.display=live?'none':'flex';
+ over.textContent=!connected?'Looking for the drone - it connects by itself as soon as it is powered on ('+s.status+')'
+  :!shown?'Connected - first picture is on its way...'
+  :'Video paused - recovering automatically ('+s.status+')';
+}
+const ctx=vid.getContext('2d');
+let shown=0, shownFps=0, painted=0, netLag=0, dec=null;
+setInterval(()=>{shownFps=painted;painted=0;},1000);
+function codec(d){for(let i=0;i+6<d.length;i++){if(d[i]===0&&d[i+1]===0&&d[i+2]===1&&(d[i+3]&31)===7){const h=x=>x.toString(16).padStart(2,'0');return 'avc1.'+h(d[i+4])+h(d[i+5])+h(d[i+6]);}}return null;}
+let sock=null;
+function needKey(){if(sock&&sock.readyState===1)sock.close();}
+function feed(b){
+ const key=b[1]===1, ts=new DataView(b.buffer,b.byteOffset+2,4).getUint32(0,true), data=b.subarray(6);
+ if(!dec||dec.state==='closed'){
+  if(!key){needKey();return;}
+  const c=codec(data); if(!c)return;
+  dec=new VideoDecoder({output:f=>{if(vid.width!==f.displayWidth){vid.width=f.displayWidth;vid.height=f.displayHeight;}ctx.drawImage(f,0,0);f.close();shown=performance.now();painted++;},error:()=>{dec=null;needKey();}});
+  dec.configure({codec:c,optimizeForLatency:true});
+ }
+ try{dec.decode(new EncodedVideoChunk({type:key?'key':'delta',timestamp:ts,data}));}catch(e){dec=null;needKey();}
+}
+function live(){
+ const ws=sock=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws');
+ ws.binaryType='arraybuffer';
+ ws.onmessage=e=>{if(typeof e.data==='string'){const s=JSON.parse(e.data);netLag=Date.now()-s.ms;show(s);return;}feed(new Uint8Array(e.data));};
+ ws.onclose=()=>{dec=null;document.getElementById('status').textContent='reconnecting to the control server...';setTimeout(live,150);};
+}
+if('VideoDecoder' in window){live();}else{
+ const img=document.createElement('img');img.id='vj';img.src='/video.mjpg';vid.replaceWith(img);
+ img.addEventListener('load',()=>{shown=performance.now();});
+ setInterval(async()=>{try{const s=await (await fetch('/state')).json();shown=s.frame_age!=null&&s.frame_age<1.5?performance.now():shown;show(s);}catch(e){}},100);
+}
+</script></body></html>

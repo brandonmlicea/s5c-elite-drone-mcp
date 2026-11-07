@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "s5c-elite": {
+      "command": "node",
+      "args": ["${CLAUDE_PROJECT_DIR:-.}/mcp/s5c-mcp.mjs"],
+      "env": {
+        "S5C_SERVER": "${S5C_SERVER:-http://127.0.0.1:8080}",
+        "S5C_HOST": "${S5C_HOST:-172.19.10.1}"
+      }
+    }
+  }
+}
