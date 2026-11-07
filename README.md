@@ -15,7 +15,7 @@ you / Claude  ->  MCP server (mcp/s5c-mcp.mjs)  ->  control server 127.0.0.1:808
 - `S5C Elite.exe`: a desktop window with the live video and the sticks, built on the same engine Tauri uses (`wry` + `tao`, WebView2). Nothing runs at login and closing the window stops everything it started.
 - `serve.exe`: the control server. Logs in to the drone by itself, pushes telemetry 25 times a second, streams H.264 to browsers over a WebSocket, and needs an access key from anywhere other than this PC.
 - `s5c-elite-mcp`: 14 tools for Claude Code, Claude Desktop or any MCP client, with a strict, documented output format.
-- `s5c-elite`: the browser control page, served by the app itself, the same UI the window shows.
+- One browser page, `src/page.html`, served by the app itself: the same UI the window shows, so any phone or laptop on the link can fly it too.
 - `replay`, `fit`, `sim`, `shell`: rebuild motion from recorded flights, fit the yaw model, fly the tracker in a simulated room, and run commands on the drone's BusyBox shell.
 
 ## Hardware
